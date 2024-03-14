@@ -248,7 +248,7 @@ def extract_list_from_prediction(info, y, y_pred, selected=None, smiles_to_mol_d
 
 def weighted_rmsd_loss(y_pred, y_true, mode=0):
     if mode == 0:
-        return torch.mean(100 * (1 / (y_true ** 2)) * (y_pred - y_true) ** 2) ##TODO 修改contact loss与affinity loss权重，与之前scale匹配
+        return torch.mean(100 * (1 / (y_true ** 2)) * (y_pred - y_true) ** 2) 
     elif mode == 1:
         import math
         return torch.mean(math.exp(10) / torch.exp(y_true) * (y_pred - y_true) ** 2) 
@@ -528,7 +528,7 @@ def evaluate_with_affinity(data_loader,
         y_pred_list.append(y_pred.detach())
         affinity_list.append(data.affinity)
         affinity_A_pred_list.append(affinity_pred_A.detach())
-        affinity_B_pred_list.append(affinity_pred_B_list[-1].detach()) #只取最后一个pred做pearson， TODO
+        affinity_B_pred_list.append(affinity_pred_B_list[-1].detach()) 
         rmsd_pred_list.append(rmsd_list[-1].detach())
         prmsd_pred_list.append(prmsd_list[-1].detach())
         tr_pred_list.append(pred_result_list[-1][0].detach())
@@ -611,9 +611,9 @@ def evaluate_with_affinity(data_loader,
         info['rot_pred_1'] = ROT_pred[:, 1].cpu().numpy()
         info['rot_pred_2'] = ROT_pred[:, 2].cpu().numpy()
         info['candicate_conf_pos'] = data_new_pos_batched_list
-        # selected_A, selected_B = select_pocket_by_predicted_affinity(info) #真口袋用不上排序选最好的，但是后面全部口袋时要用上 TODO
+        
         selected_A = selected_B = info
-        # selected_A = selected_B = info.sort_values(['compound_name', 'rmsd_pred']).groupby("compound_name").head(1).sort_values("index").reset_index(drop=True) ##将test集合改成最优的rmsd，查看模型上限 TODO
+        
         result = {}
         real_affinity = 'real_affinity' if 'real_affinity' in selected_A.columns else 'affinity'
         # result['Pearson'] = selected['affinity'].corr(selected['affinity_pred'])
@@ -630,19 +630,9 @@ def evaluate_with_affinity(data_loader,
 
         info['p_length'] = p_length_list
         info['c_length'] = c_length_list
-        # y_list, y_pred_list = extract_list_from_prediction(info, y.cpu(), y_pred.cpu(), selected=selected, smiles_to_mol_dict=None, coords_generated_from_smiles=False)
-        # selected_y = torch.cat([y.flatten() for y in y_list]).long()
-        # selected_y_pred = torch.cat([y_pred.flatten() for y_pred in y_pred_list])
-        # selected_auroc = torchmetrics.functional.auroc(selected_y_pred, selected_y)
-        # result['selected_auroc'] = selected_auroc
-
-        # for i in [90, 80, 50]:
-        #     # cover ratio, CR.
-        #     result[f'CR_{i}'] = (selected.cover_contact_ratio > i / 100).sum() / len(selected)
+        
         metrics.update(result)
-    # if not skip_y_metrics_evaluation:
-    #     metrics.update(myMetric(y_pred, y, threshold=threshold))
-    # metrics.update(affinity_metrics(affinity_pred_A, affinity))
+    
     return metrics, info, opt_torsion_dict
 
 def evaluate_affinity_only(data_loader, model, criterion, affinity_criterion, relative_k, device, info=None, saveFileName=None, use_y_mask=False):

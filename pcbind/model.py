@@ -415,7 +415,7 @@ class GaussianSmearing(torch.nn.Module):
 class IaBNet_with_affinity(torch.nn.Module):
     def __init__(self, hidden_channels=128, embedding_channels=128, c=128, mode=1, protein_embed_mode=1, compound_embed_mode=1,
                  n_trigonometry_module_stack=5, protein_bin_max=30, readout_mode=2, finetune=False, recycling_num=1, confidence_no_batchnorm=False,
-                 logging=None): #TODO: recycling_num=1
+                 logging=None): 
         super().__init__()
         self.layernorm = torch.nn.LayerNorm(embedding_channels)
         self.protein_bin_max = protein_bin_max
@@ -658,7 +658,7 @@ class IaBNet_with_affinity(torch.nn.Module):
                     z = z + self.dropout(self.protein_to_compound_list[i_module](z, protein_pair, compound_pair, z_mask.unsqueeze(-1)))
                     z = z + self.dropout(self.triangle_self_attention_list[i_module](z, z_mask))
                     z = self.tranistion(z)
-            compound_out_batched, protein_out_batched, affinity_pred_A, prmsd_pred,_ = self.MultiHeadAttention_dis_bias(z, z_mask, protein_out_batched,compound_out_batched) #获得包含protein和compound交互信息的compound single representation #TODO
+            compound_out_batched, protein_out_batched, affinity_pred_A, prmsd_pred,_ = self.MultiHeadAttention_dis_bias(z, z_mask, protein_out_batched,compound_out_batched) 
         elif self.mode == 1:
             p_coord_batched, p_coord_mask = to_dense_batch(data.node_xyz, data['protein'].batch)
             c_coord_batched, c_coord_mask = to_dense_batch(data.candicate_conf_pos, data['compound'].batch)
@@ -810,18 +810,16 @@ class IaBNet_with_affinity(torch.nn.Module):
             tor_bond_attr = compound_out_new[tor_bonds[0]] + compound_out_new[tor_bonds[1]]
             tor_bonds_sh = o3.spherical_harmonics("2e", tor_bond_vec, normalize=True, normalization='component')
             tor_edge_sh = self.final_tp_tor(tor_edge_sh, tor_bonds_sh[tor_edge_index[0]])
-            tor_edge_attr = torch.cat([tor_edge_attr, compound_out_new[tor_edge_index[1], :self.ns],  #注意node_embedding初始维度为128维，只取了前24维？TODO
+            tor_edge_attr = torch.cat([tor_edge_attr, compound_out_new[tor_edge_index[1], :self.ns],  
                                     tor_bond_attr[tor_edge_index[0], :self.ns]], -1)
-            # tor_edge_attr = torch.cat([tor_edge_attr, compound_out_new[tor_edge_index[1], :],  #注意node_embedding初始维度为128维，只取了前24维？TODO
-                                    # tor_bond_attr[tor_edge_index[0], :]], -1)
+            
             tor_pred = self.tor_bond_conv(compound_out_new, tor_edge_index, tor_edge_attr, tor_edge_sh,
                                     out_nodes=data['compound'].edge_mask.sum(), reduce='mean')
             tor_pred = self.tor_final_layer(tor_pred).squeeze(1)
         return tr_pred, rot_pred, tor_pred
 
     def build_lig_conv_graph(self, data, current_candicate_conf_pos):   
-        # builds the compound graph edges and initial node and edge features 重构后的graph三维信息远大于拓扑信息，是否正确#TODO
-
+        
         # compute edges
         radius_edges = radius_graph(current_candicate_conf_pos, self.lig_max_radius, data['compound'].batch)
         edge_index = torch.cat([data['compound', 'compound'].edge_index, radius_edges], 1).long()
@@ -908,48 +906,7 @@ class IaBNet_with_affinity(torch.nn.Module):
         sizes = degree(batch, dtype=torch.long).tolist()
         return src.split(sizes)
 
-    # def modify_conformer(self, data, tr_update, rot_update, torsion_pred_batched, batch_size, current_candicate_conf_pos):
-    #     #根据tr,rot,tor update data的candicate_conf_pos，然后return
-    #     rot_mat = axis_angle_to_matrix(rot_update.squeeze())
-    #     data_pos_batched = self.unbatch(current_candicate_conf_pos, data['compound'].batch)
-    #     ligand_atom_sizes = degree(data['compound'].batch, dtype=torch.long).tolist()
-    #     compound_edge_index_batched = self.unbatch(data['compound', 'compound'].edge_index.T, data.compound_compound_edge_attr_batch)
-    #     compound_rotate_edge_mask_batched = self.unbatch(data['compound'].edge_mask,data.compound_compound_edge_attr_batch)
-
-
-    #     new_pos_t=[]
-    #     for i in range(batch_size):
-
-    #         if torsion_pred_batched[i] is not None:
-    #             rotate_edge_index=compound_edge_index_batched[i][compound_rotate_edge_mask_batched[i]]-sum(ligand_atom_sizes[:i]) #把edge_id 从batch计数转换为样本内部计数
-    #             flexible_new_pos = modify_conformer_torsion_angles(data_pos_batched[i],
-    #                                                             rotate_edge_index,
-    #                                                             data['compound'].mask_rotate[i],
-    #                                                             torsion_pred_batched[i])
-    #             # TODO:这里先删掉原版diffdock代码中的align
-    #             # R, t = rigid_transform_Kabsch_3D_torch(flexible_new_pos.T, rigid_new_pos.T)
-    #             # aligned_flexible_pos = flexible_new_pos @ R.T + t.T
-    #             # candicate_conf_pos = aligned_flexible_pos
-
-    #         else:
-    #             flexible_new_pos=data_pos_batched[i]
-
-    #         lig_center = torch.mean(flexible_new_pos, dim=0, keepdim=True)
-    #         if batch_size > 1:
-    #             _new_pos = torch.mm((flexible_new_pos - lig_center),  rot_mat[i].T )+ tr_update[i,:] + lig_center
-    #         else:
-    #             _new_pos = torch.mm((flexible_new_pos - lig_center),  rot_mat.T )+ tr_update + lig_center
-            
-    #         new_pos_t.append(_new_pos)
-
-    #     candicate_conf_pos_new = torch.concat(new_pos_t)
-
-
-    #     #更新candicate_dis_matrix
-    #     data_pos_batched_new = self.unbatch(candicate_conf_pos_new, data['compound'].batch)
-    #     protein_pos_batched = self.unbatch(data.node_xyz, data['protein'].batch)
-    #     candicate_dis_matrix_new = torch.concat([torch.cdist(protein_pos_batched[i], data_pos_batched_new[i]).flatten() for i in range(batch_size)])
-    #     return candicate_conf_pos_new,candicate_dis_matrix_new
+    
 
     def modify_conformer(self, data, tr_update, rot_update, torsion_updates, batch_size, candicate_conf_pos): #已修正，与sample版本的输出一致
         #batch级别的根据tr,rot,tor update data的candicate_conf_pos，然后return
@@ -1000,37 +957,7 @@ class IaBNet_with_affinity(torch.nn.Module):
         return candicate_conf_pos_new,candicate_dis_matrix_new
  
 
-    # def get_symmetry_rmsd(self, data):
-    #
-    #     # TODO:目前用一般的rmsd替代，由于对称rmsd有时计算会卡住
-    #     return torch.sqrt(F.mse_loss(data.candicate_conf_pos, data['compound'].pos, reduction="mean"))
-    #
-    #     #calculate symmetry rmsd with true pocket
-    #     data_candicate_pos_batched = self.unbatch(data.candicate_conf_pos, data['compound'].batch)
-    #     data_compound_pos_batched = self.unbatch(data['compound'].pos, data['compound'].batch)
-    #     RMSD = []
-    #     for i in range(len(data.atomicnums)):
-    #         tmp_time=time.time()
-    #         if data.is_equivalent_native_pocket[i]:
-    #             #rmsd_symm_value=rmsd.symmrmsd(
-    #             #    data_compound_pos_batched[i].detach().cpu().numpy(),
-    #             #    data_candicate_pos_batched[i].detach().cpu().numpy(),
-    #             #    data.atomicnums[i],
-    #             #    data.atomicnums[i],
-    #             #    data.adjacency_matrix[i],
-    #             #    data.adjacency_matrix[i],
-    #             #)
-    #             #print(tmp_rmsd_value,tmp_rmsd_value)
-    #             RMSD.append(tmp_rmsd_value)
-    #             #RMSD.append(rmsd_symm_value)
-    #         #spend_time=time.time()-tmp_time
-    #         #logger.info("atom num : %s"%(len(data.atomicnums[i])))
-    #         #if spend_time>1:
-    #         #    logger.info(spend_time)
-    #         #if spend_time>9:
-    #         #    import pdb
-    #         #    pdb.set_trace()
-    #     return torch.tensor(RMSD, dtype=torch.float).requires_grad_()
+    
 
 def get_model(mode, logging, device, recycling_num=1):
     if mode == 0:
