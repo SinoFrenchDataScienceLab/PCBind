@@ -72,7 +72,7 @@ def Seed_everything(seed=42):
 
 Seed_everything(seed=42)
 
-parser = argparse.ArgumentParser(description='Train your own TankBind model.')
+parser = argparse.ArgumentParser(description='Train your own PCBind model.')
 parser.add_argument("-m", "--mode", type=int, default=0,
                     help="mode specify the model to use.")
 parser.add_argument("-d", "--data", type=str, default="0",
@@ -210,7 +210,7 @@ train, train_after_warm_up, valid, test, all_pocket_test, all_pocket_valid, info
 logging.info(f"data point train: {len(train)}, train_after_warm_up: {len(train_after_warm_up)}, valid: {len(valid)}, test: {len(test)}")
 
 from sx_sampler import DistributedDynamicBatchSampler
-with open(f"dyn_sample_info/dyn_sample_info_true_5_conf_0_{args.max_node}.pkl", "rb") as f: #修改data时一定要重新生成dyn_sample_info！！TODO
+with open(f"dyn_sample_info/dyn_sample_info_true_5_conf_0_{args.max_node}.pkl", "rb") as f: 
     dyn_sample_info = pickle.load(f)
 
 num_workers = 10
@@ -224,14 +224,14 @@ if args.distributed:
                                     follow_batch=['x', 'compound_pair','candicate_dis_matrix','compound_compound_edge_attr','LAS_distance_constraint_mask'], 
                                     num_workers=num_workers)
 else:
-    sampler = RandomSampler(train, replacement=False, num_samples=len(train)) #训练数据不足2w，全部口袋时要换回来 TODO
+    sampler = RandomSampler(train, replacement=False, num_samples=len(train)) 
     train_loader = DataLoader(train, batch_size=args.batch_size, follow_batch=['x', 'compound_pair','candicate_dis_matrix','compound_compound_edge_attr','LAS_distance_constraint_mask'], sampler=sampler, pin_memory=False, num_workers=num_workers,drop_last=True)
 
-# sampler = RandomSampler(train, replacement=False, num_samples=len(train)) #训练数据不足2w，全部口袋时要换回来 TODO
+# sampler = RandomSampler(train, replacement=False, num_samples=len(train)) 
 # train_loader = DataLoader(train, batch_size=args.batch_size, follow_batch=['x', 'compound_pair','candicate_dis_matrix','compound_compound_edge_attr'], sampler=sampler, pin_memory=False, num_workers=num_workers,drop_last=True)
 sampler2 = RandomSampler(train_after_warm_up, replacement=False, num_samples=args.sample_n)
 train_after_warm_up_loader = DataLoader(train_after_warm_up, batch_size=args.batch_size, follow_batch=['x', 'compound_pair','candicate_dis_matrix','compound_compound_edge_attr','LAS_distance_constraint_mask'], sampler=sampler2, pin_memory=False, num_workers=num_workers,drop_last=True)
-valid_batch_size = test_batch_size = 3 #TODO:why
+valid_batch_size = test_batch_size = 3 
 #valid_batch_size=test_batch_size=batch_size
 valid_loader = DataLoader(valid, batch_size=valid_batch_size, follow_batch=['x', 'compound_pair','candicate_dis_matrix','compound_compound_edge_attr','LAS_distance_constraint_mask'], shuffle=False, pin_memory=False, num_workers=num_workers)
 test_loader = DataLoader(test, batch_size=test_batch_size, follow_batch=['x', 'compound_pair','candicate_dis_matrix','compound_compound_edge_attr','LAS_distance_constraint_mask'], shuffle=False, pin_memory=False, num_workers=num_workers)
@@ -260,7 +260,7 @@ if args.restart:
             logger.info("single module. not in")
             model.load_state_dict(torch.load(args.restart))
 
-optimizer = torch.optim.Adam(model.parameters(), lr=args.lr) #TODO 原始0.0001
+optimizer = torch.optim.Adam(model.parameters(), lr=args.lr) 
 # model.train()
 if args.pred_dis:
     if args.use_weighted_rmsd_loss:
@@ -335,7 +335,7 @@ for epoch in range(200):
     epoch_tor_loss=0
     epoch_tr_loss_recy_0, epoch_rot_loss_recy_0, epoch_tor_loss_recy_0 = 0, 0, 0
     epoch_tr_loss_recy_1, epoch_rot_loss_recy_1, epoch_tor_loss_recy_1 = 0, 0, 0
-    #先修改数据为只有真口袋的，验证我们的方法，后续改回全部口袋 TODO
+    
     # if epoch < data_warmup_epochs:
     #     data_it = tqdm(train_loader)
     # else:
@@ -363,9 +363,8 @@ for epoch in range(200):
             next_candicate_conf_pos_batched=pred_result[3]
             for i in range(len(next_candicate_conf_pos_batched)):
                 data_new_pos_batched_list[i].append(next_candicate_conf_pos_batched[i].detach().cpu().numpy().tolist())
-        # print(data.y.sum(), y_pred.sum())
-        # print(data_new.is_equivalent_native_pocket, rmsd_list[2].shape) 训练时出现晶体构象不是is_equivalent_native_pocket情况，暂时无法打印rmsd_list
-        for i in range(len(data_new_pos_batched_list)): #记录每个样本的后面recycling构象更新情况，第0个构象是原始构象 全口袋时删除  TODO
+        
+        for i in range(len(data_new_pos_batched_list)): 
             train_result_list.append([data.pdb[i], data_new_pos_batched_list[i], affinity_pred_A[i].detach().cpu().numpy(), affinity_pred_B_list[-1][i].detach().cpu().numpy() , prmsd_list[-1][i].detach().cpu().numpy()])
 
         # RMSD loss
@@ -569,20 +568,13 @@ for epoch in range(200):
         # print(contact_loss.item(), affinity_loss_A.item())
         #total loss
         if args.use_contact_loss == 0:
-            # loss = tor_loss + affinity_loss_B + contact_loss #TODO:debug阶段
+            
             loss = rmsd_loss_recy_last + affinity_loss_B + torch.clamp(tor_loss, 0, 1e-7)
-            #loss = tor_loss #TODO:debug阶段
-            #loss = prmsd_loss.double() + rmsd_loss.double() + affinity_loss_A + affinity_loss_B
+            
         else:
             loss = contact_loss.float()
             loss = loss.requires_grad_(True)
-        # logging.info(f"prmsd_loss: {prmsd_loss.detach().cpu()}, rmsd_loss: {rmsd_loss.detach().cpu()}, affinity_loss_A: {affinity_loss_A.detach().cpu()}, affinity_loss_B: {affinity_loss_B.detach().cpu()}")
-        # try:
-        #     loss.backward()
-        # except:
-        #     print(rmsd_loss_recy_last,tor_loss,affinity_loss_A,affinity_loss_B)
-        #     import pdb
-        #     pdb.set_trace()
+        
         loss.backward()
         optimizer.step()
         #记录日志
@@ -616,12 +608,12 @@ for epoch in range(200):
         epoch_rmsd_recycling_19_loss +=len(rmsd_list[0]) * rmsd_recycling_19_loss.item()
         epoch_rmsd_recycling_39_loss +=len(rmsd_list[0]) * rmsd_recycling_39_loss.item()
 
-        # print(f"{loss.item():.3}")
+    
         y_list.append(y)
         y_pred_list.append(y_pred.detach())
         affinity_list.append(data.affinity)
         affinity_A_pred_list.append(affinity_pred_A.detach())
-        affinity_B_pred_list.append(affinity_pred_B_list[-1].detach()) #只取最后一个pred做pearson， TODO
+        affinity_B_pred_list.append(affinity_pred_B_list[-1].detach()) 
         rmsd_pred_list.append(rmsd_list[-1].detach())
         prmsd_pred_list.append(prmsd_list[-1].detach())
         # torch.cuda.empty_cache()
@@ -709,7 +701,7 @@ for epoch in range(200):
         writer.add_scalar('epochLoss.tor_recy_1/train', epoch_tor_loss_recy_1 / len(RMSD_pred), epoch)
 
 
-    #continue #TODO
+   
     #===================validation========================================
     validation_tag=False
     if args.distributed :
@@ -732,18 +724,7 @@ for epoch in range(200):
         valid_result = pd.DataFrame(info_va_save, columns=['compound_name', 'candicate_conf_pos', 'affinity_pred_A', 'affinity_pred_B', 'rmsd_pred', 'prmsd_pred', 'tr_pred_0','tr_pred_1','tr_pred_2', 'rot_pred_0', 'rot_pred_1','rot_pred_2'])
         save_path = f"{pre}/results/valid_result_{epoch}.csv"
         valid_result.to_csv(save_path)
-        # metrics = evaluate_with_affinity(all_pocket_valid_loader, model, contact_criterion, affinity_criterion, args.relative_k, device, pred_dis=pred_dis, info=info_va, saveFileName=saveFileName) #TODO
-        #if metrics["auroc"] <= best_auroc and metrics['f1_1'] <= best_f1_1:
-        #    # not improving. (both metrics say there is no improving)
-        #    epoch_not_improving += 1
-        #    ending_message = f" No improvement +{epoch_not_improving}"
-        #else:
-        #    epoch_not_improving = 0
-        #    if metrics["auroc"] > best_auroc:
-        #        best_auroc = metrics['auroc']
-        #    if metrics['f1_1'] > best_f1_1:
-        #        best_f1_1 = metrics['f1_1']
-        #    ending_message = " "
+        
         valid_metrics_list.append(metrics)
         #logging.info(f"epoch {epoch:<4d}, single_valid, " + print_metrics(metrics) + ending_message)
 
@@ -803,15 +784,14 @@ for epoch in range(200):
         # saveFileName = f"{pre}/results/single_epoch_{epoch}.pt"
         saveFileName = f"{pre}/results/test_epoch_{epoch}.pt"
         info_only_compound = info.query("use_compound_com and group =='test' and c_length < 100 and native_num_contact > 5")
-        # info_only_compound = pd.read_csv('d_group_is_test_and_reset_index.csv') ##将test集合改成最优的rmsd，查看模型上限 TODO
+        
         metrics, info_save, opt_torsion_dict  = evaluate_with_affinity(test_loader, model, contact_criterion, affinity_criterion, args.relative_k,
                                         device, pred_dis=pred_dis, info=info_only_compound, saveFileName=saveFileName, opt_torsion_dict=opt_torsion_dict)
         test_metrics_list.append(metrics)
         test_result = pd.DataFrame(info_save, columns=['compound_name', 'candicate_conf_pos', 'affinity_pred_A', 'affinity_pred_B', 'rmsd_pred', 'prmsd_pred', 'tr_pred_0','tr_pred_1','tr_pred_2', 'rot_pred_0', 'rot_pred_1','rot_pred_2'])
         save_path = f"{pre}/results/test_result_{epoch}.csv"
         test_result.to_csv(save_path)
-        # metrics = evaluate_with_affinity(all_pocket_test_loader, model, contact_criterion, affinity_criterion, args.relative_k,
-        #                                  device, pred_dis=pred_dis, info=info, saveFileName=saveFileName) #TODO
+        
         logging.info(f"epoch {epoch:<4d}, test," + print_metrics(metrics))
         writer.add_scalar('epochLoss.Total/test', metrics["loss"], epoch)
         writer.add_scalar('epochLoss.Contact/test', metrics["loss_contact"], epoch)
